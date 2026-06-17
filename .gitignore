@@ -12,6 +12,7 @@ env/
 db.sqlite3
 *.sqlite3
 media/
+static/admin/
 staticfiles/
 
 # Environment Variables
