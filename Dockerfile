@@ -1,31 +1,43 @@
 FROM python:3.14-slim AS builder
- 
-RUN mkdir /app
- 
-WORKDIR /app
- 
+
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1 
- 
-RUN pip install --upgrade pip 
- 
-COPY requirements.txt  /app/
- 
-RUN pip install --no-cache-dir -r requirements.txt
-
-FROM python:3.14-slim
-
-RUN useradd -m -r appuser && \
-   mkdir /app && \
-   chown -R appuser /app
-
-COPY --from=builder /usr/local/lib/python3.14/site-packages/ /usr/local/lib/python3.14/site-packages/
-COPY --from=builder /usr/local/bin/ /usr/local/bin/
+ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY --chown=appuser:appuser . .
- 
-EXPOSE 8000
- 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "config.wsgi:application"]
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+
+RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements.txt
+
+
+FROM python:3.14-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PATH="/venv/bin:$PATH"
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        netcat-openbsd \
+        postgresql-client \
+        libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m venv /venv
+
+COPY --from=builder /wheels /wheels
+RUN pip install --no-cache-dir /wheels/*
+
+COPY . .
+
+RUN chmod +x /app/backend.entrypoint.sh
+
+ENTRYPOINT ["sh", "/app/backend.entrypoint.sh"]

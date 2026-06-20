@@ -12,9 +12,24 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
+
+
+def env_bool(name, default=False):
+    return os.getenv(name, str(default)).lower() in ['true', '1', 'yes']
+
+
+def env_list(name, default=''):
+    return [
+        item.strip()
+        for item in os.getenv(name, default).split(',')
+        if item.strip()
+    ]
 
 
 # Quick-start development settings - unsuitable for production
@@ -24,9 +39,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = bool(os.environ.get("DEBUG", False))
+DEBUG = env_bool('DJANGO_DEBUG', False)
 
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "127.0.0.1").split(",")
+ALLOWED_HOSTS = env_list('DJANGO_ALLOWED_HOSTS', '127.0.0.1')
+CORS_ALLOWED_ORIGINS = env_list('DJANGO_CORS_ALLOWED_ORIGINS')
+CSRF_TRUSTED_ORIGINS = env_list('DJANGO_CSRF_TRUSTED_ORIGINS')
+CORS_ALLOW_CREDENTIALS = False
 
 
 # Application definition
@@ -39,6 +57,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'django_filters',
+    'django_rq',
     'apps.users',
 ]
 
@@ -56,17 +77,6 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:4200",
-    "http://127.0.0.1:4200",
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:4200",
-    "http://127.0.0.1:4200",
-]
-
-CORS_ALLOW_CREDENTIALS = False
 
 ROOT_URLCONF = 'config.urls'
 
@@ -93,16 +103,68 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.{}'.format(
-            os.getenv('DATABASE_ENGINE', 'sqlite3')
-        ),
-        'NAME': os.getenv('DATABASE_NAME', 'polls'),
-        'USER': os.getenv('DATABASE_USERNAME', 'myprojectuser'),
-        'PASSWORD': os.getenv('DATABASE_PASSWORD', 'password'),
-        'HOST': os.getenv('DATABASE_HOST', '127.0.0.1'),
-        'PORT': os.getenv('DATABASE_PORT', 5432),
-    }
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('POSTGRES_DB'),
+        'USER': os.getenv('POSTGRES_USER'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
+        'HOST': os.getenv('POSTGRES_HOST', 'db'),
+        'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        'CONN_MAX_AGE': int(os.getenv('POSTGRES_CONN_MAX_AGE', 60)),
+        'OPTIONS': {
+            'connect_timeout': int(
+                os.getenv('POSTGRES_CONNECT_TIMEOUT', 10)
+            ),
+        },
+    },
 }
+
+# Redis
+
+REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
+REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+REDIS_DB = int(os.getenv('REDIS_DB', 0))
+REDIS_CACHE_TIMEOUT = int(os.getenv('REDIS_CACHE_TIMEOUT', 300))
+
+REDIS_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}'
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': REDIS_URL,
+        'TIMEOUT': REDIS_CACHE_TIMEOUT,
+    },
+}
+
+# Django RQ
+
+RQ_DEFAULT_TIMEOUT = int(os.getenv('RQ_DEFAULT_TIMEOUT', 300))
+RQ_HIGH_TIMEOUT = int(os.getenv('RQ_HIGH_TIMEOUT', 600))
+RQ_LOW_TIMEOUT = int(os.getenv('RQ_LOW_TIMEOUT', 180))
+RQ_RESULT_TTL = int(os.getenv('RQ_RESULT_TTL', 500))
+RQ_FAILURE_TTL = int(os.getenv('RQ_FAILURE_TTL', 86400))
+
+RQ_QUEUES = {
+    'high': {
+        'URL': REDIS_URL,
+        'DEFAULT_TIMEOUT': RQ_HIGH_TIMEOUT,
+        'DEFAULT_RESULT_TTL': RQ_RESULT_TTL,
+        'DEFAULT_FAILURE_TTL': RQ_FAILURE_TTL,
+    },
+    'default': {
+        'URL': REDIS_URL,
+        'DEFAULT_TIMEOUT': RQ_DEFAULT_TIMEOUT,
+        'DEFAULT_RESULT_TTL': RQ_RESULT_TTL,
+        'DEFAULT_FAILURE_TTL': RQ_FAILURE_TTL,
+    },
+    'low': {
+        'URL': REDIS_URL,
+        'DEFAULT_TIMEOUT': RQ_LOW_TIMEOUT,
+        'DEFAULT_RESULT_TTL': RQ_RESULT_TTL,
+        'DEFAULT_FAILURE_TTL': RQ_FAILURE_TTL,
+    },
+}
+
+RQ_SHOW_ADMIN_LINK = True
 
 
 # Password validation
@@ -155,5 +217,29 @@ STORAGES = {
         "BACKEND": (
             "whitenoise.storage.CompressedManifestStaticFilesStorage"
         ),
+    },
+}
+
+# Django REST Framework
+
+REST_FRAMEWORK = {
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
+    'DEFAULT_PAGINATION_CLASS': (
+        'rest_framework.pagination.PageNumberPagination'
+    ),
+    'PAGE_SIZE': int(os.getenv('DRF_PAGE_SIZE', 20)),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': os.getenv('DRF_ANON_RATE', '100/day'),
+        'user': os.getenv('DRF_USER_RATE', '1000/day'),
+        'login': os.getenv('DRF_LOGIN_RATE', '5/min'),
+        'upload': os.getenv('DRF_UPLOAD_RATE', '20/hour'),
     },
 }

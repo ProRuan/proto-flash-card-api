@@ -1,3 +1,8 @@
+# Environment Variables
+.env
+.env.local
+.env.production
+
 # Python
 __pycache__/
 *.py[cod]
@@ -8,15 +13,16 @@ __pycache__/
 venv/
 env/
 
-# Django
+# Django Database
 db.sqlite3
 *.sqlite3
-media/
-static/admin/
-staticfiles/
 
-# Environment Variables
-.env
+# Django Media
+media/
+
+# Django Static Files
+static/
+staticfiles/
 
 # Logs
 *.log
@@ -26,9 +32,16 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
-
-# Type Checking
 .mypy_cache/
+
+# Build Artifacts
+build/
+dist/
+*.egg-info/
+
+# Docker Volumes
+postgres_data/
+redis_data/
 
 # IDE
 .vscode/
@@ -38,14 +51,8 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Build Files
-build/
-dist/
-*.egg-info/
-
-# Docker Volumes
-postgres_data/
-redis_data/
-
 # Private
 private/
+
+# Node
+node_modules/
