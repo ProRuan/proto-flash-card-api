@@ -7,8 +7,8 @@ WORKDIR /app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        build-essential \
-        libpq-dev \
+    build-essential \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -26,9 +26,9 @@ WORKDIR /app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        netcat-openbsd \
-        postgresql-client \
-        libpq5 \
+    netcat-openbsd \
+    postgresql-client \
+    libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python -m venv /venv
@@ -40,4 +40,4 @@ COPY . .
 
 RUN chmod +x /app/backend.entrypoint.sh
 
-ENTRYPOINT ["sh", "/app/backend.entrypoint.sh"]
+ENTRYPOINT ["/app/backend.entrypoint.sh"]

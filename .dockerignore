@@ -5,6 +5,8 @@
 # Environment Variables
 .env
 .env.*
+!.env.template
+!.env.template.*
 
 # Python
 __pycache__/
@@ -19,8 +21,13 @@ env/
 # Testing
 .pytest_cache/
 .coverage
+coverage.xml
 htmlcov/
 .mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+junit.xml
 
 # IDE
 .vscode/
@@ -49,6 +56,12 @@ redis_data/
 
 # Private
 private/
+tmp/
+temp/
+
+# Python Builds
+*.egg-info/
+.eggs/
 
 # Node
 node_modules/
