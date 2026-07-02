@@ -214,3 +214,131 @@ def test_user_cannot_delete_other_users_card(auth_client, other_user, other_deck
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert Card.objects.filter(id=other_card.id).exists()
+
+
+@pytest.mark.django_db
+def test_cannot_create_card_without_front(auth_client, deck):
+    response = auth_client.post(
+        "/api/cards/",
+        {
+            "deck": deck.id,
+            "front": "",
+            "back": "Answer exists.",
+        },
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "front" in response.data
+
+
+@pytest.mark.django_db
+def test_cannot_create_card_without_back(auth_client, deck):
+    response = auth_client.post(
+        "/api/cards/",
+        {
+            "deck": deck.id,
+            "front": "Question exists.",
+            "back": "",
+        },
+        format="json",
+    )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "back" in response.data
+
+
+@pytest.mark.django_db
+def test_user_can_search_cards(auth_client, user, deck):
+    Card.objects.create(
+        user=user,
+        deck=deck,
+        front="What is Django?",
+        back="A Python web framework.",
+    )
+    Card.objects.create(
+        user=user,
+        deck=deck,
+        front="What is Angular?",
+        back="A frontend framework.",
+    )
+
+    response = auth_client.get("/api/cards/?search=django")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["count"] == 1
+    assert response.data["results"][0]["front"] == "What is Django?"
+
+
+@pytest.mark.django_db
+def test_user_can_filter_cards_by_deck(auth_client, user, deck):
+    other_deck = Deck.objects.create(
+        user=user,
+        name="Angular",
+        topic="Frontend",
+    )
+
+    Card.objects.create(
+        user=user,
+        deck=deck,
+        front="Django card",
+        back="Backend answer.",
+    )
+    Card.objects.create(
+        user=user,
+        deck=other_deck,
+        front="Angular card",
+        back="Frontend answer.",
+    )
+
+    response = auth_client.get(f"/api/cards/?deck={deck.id}")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["count"] == 1
+    assert response.data["results"][0]["front"] == "Django card"
+
+
+@pytest.mark.django_db
+def test_user_can_filter_archived_cards(auth_client, user, deck):
+    Card.objects.create(
+        user=user,
+        deck=deck,
+        front="Active card",
+        back="Active answer.",
+        is_archived=False,
+    )
+    Card.objects.create(
+        user=user,
+        deck=deck,
+        front="Archived card",
+        back="Archived answer.",
+        is_archived=True,
+    )
+
+    response = auth_client.get("/api/cards/?is_archived=true")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["count"] == 1
+    assert response.data["results"][0]["front"] == "Archived card"
+
+
+@pytest.mark.django_db
+def test_user_can_order_cards_by_front(auth_client, user, deck):
+    Card.objects.create(
+        user=user,
+        deck=deck,
+        front="Beta",
+        back="Second.",
+    )
+    Card.objects.create(
+        user=user,
+        deck=deck,
+        front="Alpha",
+        back="First.",
+    )
+
+    response = auth_client.get("/api/cards/?ordering=front")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["results"][0]["front"] == "Alpha"
+    assert response.data["results"][1]["front"] == "Beta"
