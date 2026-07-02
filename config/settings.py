@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'django_filters',
     'django_rq',
     'apps.users',
+    'apps.decks',
 ]
 
 AUTH_USER_MODEL = "users.CustomUser"
