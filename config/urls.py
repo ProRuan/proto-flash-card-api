@@ -24,6 +24,7 @@ urlpatterns = [
     path("api/", include("apps.decks.api.urls")),
     path("api/", include("apps.cards.api.urls")),
     path("api/", include("apps.tags.api.urls")),
+    path("api/", include("apps.card_relations.api.urls")),
 ]
 
 if settings.DEBUG:
