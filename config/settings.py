@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'apps.users',
     'apps.decks',
     'apps.cards',
+    'apps.tags',
 ]
 
 AUTH_USER_MODEL = "users.CustomUser"
